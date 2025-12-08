@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Weather Along Route</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🌤️ Weather Along Route</h1>
+            <p>Plan your trip with weather forecasts along the way</p>
+        </header>
+
+        <div class="main-content">
+            <aside class="sidebar">
+                <form id="route-form">
+                    <div class="form-group">
+                        <label for="start-location">Starting Location</label>
+                        <input type="text" id="start-location" placeholder="e.g., New York, NY" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="end-location">Destination</label>
+                        <input type="text" id="end-location" placeholder="e.g., Boston, MA" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="start-datetime">Departure Date & Time</label>
+                        <input type="datetime-local" id="start-datetime" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Temperature Unit</label>
+                        <div class="toggle-group">
+                            <button type="button" class="toggle-btn active" data-unit="fahrenheit">°F</button>
+                            <button type="button" class="toggle-btn" data-unit="celsius">°C</button>
+                        </div>
+                    </div>
+
+                    <button type="submit" id="plan-trip-btn">
+                        <span class="btn-text">Plan My Trip</span>
+                        <span class="btn-loading" style="display: none;">Loading...</span>
+                    </button>
+                </form>
+
+                <div id="time-adjuster" class="time-adjuster" style="display: none;">
+                    <label>Adjust Departure Time</label>
+                    <div class="slider-container">
+                        <span class="slider-label">-24h</span>
+                        <input type="range" id="time-slider" min="-24" max="24" value="0" step="1">
+                        <span class="slider-label">+24h</span>
+                    </div>
+                    <div class="slider-value">
+                        <span id="adjusted-time"></span>
+                    </div>
+                </div>
+            </aside>
+
+            <main class="map-container">
+                <div id="map"></div>
+            </main>
+        </div>
+
+        <div id="weather-summary" class="weather-summary" style="display: none;">
+            <h3>Weather Along Your Route</h3>
+            <div id="weather-cards"></div>
+        </div>
+
+        <footer class="attribution">
+            Weather data by <a href="https://open-meteo.com/" target="_blank" rel="noopener">Open-Meteo</a> •
+            Routing by <a href="https://project-osrm.org/" target="_blank" rel="noopener">OSRM</a> •
+            Geocoding by <a href="https://nominatim.org/" target="_blank" rel="noopener">Nominatim</a> &amp; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a>
+        </footer>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="/app.js"></script>
+</body>
+</html>
