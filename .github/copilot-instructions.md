@@ -7,20 +7,20 @@ A web app that displays weather forecasts along a driving route, showing conditi
 - **Backend**: Cloudflare Workers with Hono framework
 - **Frontend**: Static HTML/CSS/JavaScript served via Cloudflare Assets
 - **Map**: Leaflet.js for route visualization
-- **APIs**: 
-  - OSRM for routing
-  - Nominatim for geocoding
-  - Open-Meteo for weather forecasts and sunrise/sunset data
+- **APIs**:
+  - OSRM for routing (proxied through backend)
+  - Nominatim for geocoding (called from frontend)
+  - Open-Meteo for weather forecasts and sunrise/sunset data (called from frontend)
 
 ## Project Structure
 ```
 /
 ├── src/
-│   └── index.ts          # Hono API server with route and weather endpoints
+│   └── index.ts          # Hono API server with route endpoint only
 ├── public/
 │   ├── index.html        # Main page with form, time slider, map, weather cards
 │   ├── styles.css        # Styling including night/alert states
-│   └── app.js            # Frontend logic with weather scoring, night detection
+│   └── app.js            # Frontend logic with weather fetching, scoring, night detection
 ├── wrangler.toml         # Cloudflare Workers config
 ├── package.json
 └── tsconfig.json
@@ -42,4 +42,6 @@ A web app that displays weather forecasts along a driving route, showing conditi
 
 ## API Endpoints
 - `GET /api/route` - Get driving route between two points (proxies OSRM)
-- `POST /api/weather/batch` - Get weather for multiple locations/times (includes sunrise/sunset)
+
+## Browser-side API Calls
+- Open-Meteo weather API is called directly from the browser to avoid Cloudflare IP restrictions

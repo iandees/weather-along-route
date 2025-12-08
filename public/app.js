@@ -47,6 +47,106 @@ let currentWeatherData = [];
 let baseStartTime = null;
 let timeOffset = 0;
 
+// WMO Weather interpretation codes
+function getWeatherDescription(code) {
+    const descriptions = {
+        0: 'Clear sky',
+        1: 'Mainly clear',
+        2: 'Partly cloudy',
+        3: 'Overcast',
+        45: 'Foggy',
+        48: 'Depositing rime fog',
+        51: 'Light drizzle',
+        53: 'Moderate drizzle',
+        55: 'Dense drizzle',
+        56: 'Light freezing drizzle',
+        57: 'Dense freezing drizzle',
+        61: 'Slight rain',
+        63: 'Moderate rain',
+        65: 'Heavy rain',
+        66: 'Light freezing rain',
+        67: 'Heavy freezing rain',
+        71: 'Slight snow',
+        73: 'Moderate snow',
+        75: 'Heavy snow',
+        77: 'Snow grains',
+        80: 'Slight rain showers',
+        81: 'Moderate rain showers',
+        82: 'Violent rain showers',
+        85: 'Slight snow showers',
+        86: 'Heavy snow showers',
+        95: 'Thunderstorm',
+        96: 'Thunderstorm with slight hail',
+        99: 'Thunderstorm with heavy hail'
+    };
+    return descriptions[code] || 'Unknown';
+}
+
+// Fetch weather from Open-Meteo directly (browser-side)
+async function fetchWeatherForWaypoints(waypoints) {
+    const weatherPromises = waypoints.map(async (wp) => {
+        try {
+            const date = new Date(wp.arrivalTime);
+            // Get date range: 1 day before to 2 days after for 48-hour adjustment window
+            const startDate = new Date(date);
+            startDate.setDate(startDate.getDate() - 1);
+            const endDate = new Date(date);
+            endDate.setDate(endDate.getDate() + 2);
+
+            const startDateStr = startDate.toISOString().split('T')[0];
+            const endDateStr = endDate.toISOString().split('T')[0];
+
+            const url = `https://api.open-meteo.com/v1/forecast?latitude=${wp.lat}&longitude=${wp.lng}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m&daily=sunrise,sunset&start_date=${startDateStr}&end_date=${endDateStr}&timezone=auto`;
+
+            const response = await fetch(url);
+
+            if (!response.ok) {
+                console.error(`Open-Meteo API error for point (${wp.lat}, ${wp.lng}): ${response.status}`);
+                return null;
+            }
+
+            const data = await response.json();
+
+            // Validate that required data is present
+            if (!data.hourly || !data.hourly.time || !data.daily || !data.daily.time) {
+                console.error(`Open-Meteo API returned incomplete data for point (${wp.lat}, ${wp.lng})`);
+                return null;
+            }
+
+            // Return the full hourly forecast data for client-side time adjustment
+            return {
+                lat: wp.lat,
+                lng: wp.lng,
+                baseDateTime: wp.arrivalTime.toISOString(),
+                hourlyForecast: data.hourly.time.map((time, i) => ({
+                    time,
+                    temperature: data.hourly.temperature_2m[i],
+                    precipitationProbability: data.hourly.precipitation_probability[i],
+                    precipitation: data.hourly.precipitation[i],
+                    weatherCode: data.hourly.weather_code[i],
+                    windSpeed: data.hourly.wind_speed_10m[i],
+                    description: getWeatherDescription(data.hourly.weather_code[i])
+                })),
+                dailySunTimes: data.daily.time.map((date, i) => ({
+                    date,
+                    sunrise: data.daily.sunrise[i],
+                    sunset: data.daily.sunset[i]
+                })),
+                units: {
+                    temperature: data.hourly_units?.temperature_2m || '°C',
+                    precipitation: data.hourly_units?.precipitation || 'mm',
+                    windSpeed: data.hourly_units?.wind_speed_10m || 'km/h'
+                }
+            };
+        } catch (error) {
+            console.error(`Error fetching weather for point (${wp.lat}, ${wp.lng}):`, error);
+            return null;
+        }
+    });
+
+    return Promise.all(weatherPromises);
+}
+
 // Time slider handler
 const timeSlider = document.getElementById('time-slider');
 const adjustedTimeDisplay = document.getElementById('adjusted-time');
@@ -58,6 +158,19 @@ timeSlider.addEventListener('input', () => {
 
 // Get weather for a specific time from hourly forecast data
 function getWeatherForTime(weatherPoint, targetTime) {
+    // Handle missing weather data
+    if (!weatherPoint || !weatherPoint.hourlyForecast || weatherPoint.hourlyForecast.length === 0) {
+        return {
+            time: targetTime.toISOString(),
+            temperature: null,
+            weatherCode: 0,
+            description: 'Weather data unavailable',
+            precipitation: 0,
+            precipitationProbability: 0,
+            windSpeed: 0
+        };
+    }
+
     const targetISO = targetTime.toISOString();
     const targetHour = targetTime.getUTCHours();
     const targetDate = targetTime.toISOString().split('T')[0];
@@ -267,13 +380,21 @@ function getAverageScoreForOffset(offset) {
     }
 
     let totalScore = 0;
+    let validPoints = 0;
     currentWaypoints.forEach((wp, index) => {
         const adjustedArrival = new Date(wp.arrivalTime.getTime() + offset * 3600000);
         const weatherPoint = currentWeatherData[index];
+
+        // Skip if weather data is missing for this point
+        if (!weatherPoint) {
+            return;
+        }
+
         const weather = getWeatherForTime(weatherPoint, adjustedArrival);
 
         // Start with weather score
         let waypointScore = calculateWeatherScore(weather);
+        validPoints++;
 
         // Apply night driving penalty (using sunrise/sunset data)
         waypointScore -= getNightDrivingPenalty(adjustedArrival, weatherPoint);
@@ -281,7 +402,7 @@ function getAverageScoreForOffset(offset) {
         totalScore += Math.max(0, waypointScore);
     });
 
-    return totalScore / currentWaypoints.length;
+    return validPoints > 0 ? totalScore / validPoints : 50;
 }
 
 // Update the slider gradient based on weather scores
@@ -370,6 +491,12 @@ function updateWeatherDisplay() {
     currentWaypoints.forEach((wp, index) => {
         const adjustedArrival = new Date(wp.arrivalTime.getTime() + timeOffset * 3600000);
         const weatherPoint = currentWeatherData[index];
+
+        // Skip if weather data is missing for this point
+        if (!weatherPoint) {
+            return;
+        }
+
         const weather = getWeatherForTime(weatherPoint, adjustedArrival);
         const icon = getWeatherIcon(weather.weatherCode);
         const alert = getWeatherAlert(weather, adjustedArrival, weatherPoint);
@@ -673,18 +800,8 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
             startDatetime
         );
 
-        // Fetch weather for all waypoints
-        const weatherResponse = await fetch('/api/weather/batch', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(waypoints.map(wp => ({
-                lat: wp.lat,
-                lng: wp.lng,
-                datetime: wp.arrivalTime.toISOString()
-            })))
-        });
-
-        const weatherResults = await weatherResponse.json();
+        // Fetch weather for all waypoints directly from Open-Meteo
+        const weatherResults = await fetchWeatherForWaypoints(waypoints);
 
         // Store data for time adjustments
         currentWaypoints = waypoints;
