@@ -105,33 +105,6 @@ button[type="submit"]:disabled {
     transform: none;
 }
 
-.toggle-group {
-    display: flex;
-    gap: 8px;
-}
-
-.toggle-btn {
-    flex: 1;
-    padding: 10px 16px;
-    border: 2px solid #e1e5eb;
-    background: white;
-    border-radius: 8px;
-    font-size: 1rem;
-    font-weight: 600;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.toggle-btn:hover {
-    border-color: #667eea;
-}
-
-.toggle-btn.active {
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-    color: white;
-    border-color: transparent;
-}
-
 .time-adjuster {
     background: white;
     padding: 20px;
@@ -303,6 +276,39 @@ button[type="submit"]:disabled {
 /* Leaflet popup styling */
 .leaflet-popup-content-wrapper {
     border-radius: 12px;
+}
+
+/* Unit control on map */
+.unit-control {
+    background: white;
+    border-radius: 8px !important;
+    overflow: hidden;
+    display: flex;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
+}
+
+.unit-control .unit-btn {
+    padding: 8px 12px;
+    border: none;
+    background: white;
+    color: #333;
+    font-size: 0.85rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.unit-control .unit-btn:first-child {
+    border-right: 1px solid #e1e5eb;
+}
+
+.unit-control .unit-btn:hover {
+    background: #f5f7fa;
+}
+
+.unit-control .unit-btn.active {
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    color: white;
 }
 
 .weather-popup {

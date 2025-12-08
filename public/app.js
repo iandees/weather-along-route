@@ -5,27 +5,47 @@ L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     attribution: '© OpenStreetMap contributors'
 }).addTo(map);
 
-// Temperature unit preference
-let temperatureUnit = 'fahrenheit';
+// Unit system preference (imperial or metric)
+let unitSystem = 'imperial';
+
+// Create custom Leaflet control for unit toggle
+const UnitControl = L.Control.extend({
+    options: {
+        position: 'topright'
+    },
+    onAdd: function(map) {
+        const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control unit-control');
+        container.innerHTML = `
+            <button class="unit-btn active" data-unit="imperial">Imperial</button>
+            <button class="unit-btn" data-unit="metric">Metric</button>
+        `;
+
+        // Prevent map interactions when clicking control
+        L.DomEvent.disableClickPropagation(container);
+
+        // Add click handlers
+        container.querySelectorAll('.unit-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                container.querySelectorAll('.unit-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                unitSystem = btn.dataset.unit;
+                if (currentWaypoints.length > 0) {
+                    updateWeatherDisplay();
+                }
+            });
+        });
+
+        return container;
+    }
+});
+
+map.addControl(new UnitControl());
 
 // Store route data for time adjustments
 let currentWaypoints = [];
 let currentWeatherData = [];
 let baseStartTime = null;
 let timeOffset = 0;
-
-// Toggle button handlers
-document.querySelectorAll('.toggle-btn').forEach(btn => {
-    btn.addEventListener('click', () => {
-        document.querySelectorAll('.toggle-btn').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        temperatureUnit = btn.dataset.unit;
-        // Re-render weather with new unit
-        if (currentWaypoints.length > 0) {
-            updateWeatherDisplay();
-        }
-    });
-});
 
 // Time slider handler
 const timeSlider = document.getElementById('time-slider');
@@ -163,7 +183,7 @@ function updateWeatherDisplay() {
                 <span class="description">${weather.description}</span>
             </div>
             <div class="details">
-                <span>💨 ${Math.round(weather.windSpeed)} ${weatherPoint.units.windSpeed}</span>
+                <span>💨 ${convertWindSpeed(weather.windSpeed)} ${getWindSpeedUnit()}</span>
                 <span>🌧️ ${weather.precipitationProbability}% chance</span>
             </div>
         `;
@@ -180,7 +200,7 @@ function updateWeatherDisplay() {
 
 // Convert Celsius to Fahrenheit
 function convertTemp(tempCelsius) {
-    if (temperatureUnit === 'fahrenheit') {
+    if (unitSystem === 'imperial') {
         return Math.round(tempCelsius * 9/5 + 32);
     }
     return Math.round(tempCelsius);
@@ -188,7 +208,20 @@ function convertTemp(tempCelsius) {
 
 // Get temperature unit symbol
 function getTempUnit() {
-    return temperatureUnit === 'fahrenheit' ? '°F' : '°C';
+    return unitSystem === 'imperial' ? '°F' : '°C';
+}
+
+// Convert wind speed from km/h to mph if imperial
+function convertWindSpeed(speedKmh) {
+    if (unitSystem === 'imperial') {
+        return Math.round(speedKmh * 0.621371);
+    }
+    return Math.round(speedKmh);
+}
+
+// Get wind speed unit
+function getWindSpeedUnit() {
+    return unitSystem === 'imperial' ? 'mph' : 'km/h';
 }
 
 // Store layers for clearing
