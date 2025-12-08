@@ -120,6 +120,40 @@ button[type="submit"]:disabled {
     font-size: 0.9rem;
 }
 
+.best-time-container {
+    position: relative;
+    height: 32px;
+    margin-bottom: 4px;
+    margin-left: 35px;
+    margin-right: 35px;
+}
+
+.best-time-marker {
+    position: absolute;
+    transform: translateX(-50%);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    cursor: pointer;
+    transition: left 0.3s ease;
+}
+
+.best-time-marker:hover {
+    transform: translateX(-50%) scale(1.1);
+}
+
+.best-time-icon {
+    font-size: 1.2rem;
+    line-height: 1;
+}
+
+.best-time-label {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: #667eea;
+    text-transform: uppercase;
+}
+
 .slider-container {
     display: flex;
     align-items: center;

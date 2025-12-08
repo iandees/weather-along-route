@@ -209,6 +209,52 @@ function updateSliderGradient() {
     timeSlider.style.background = `linear-gradient(to right, ${stops.join(', ')})`;
 }
 
+// Find the best departure time offset based on weather scores
+function findBestTimeOffset() {
+    let bestOffset = 0;
+    let bestScore = -1;
+
+    for (let offset = -24; offset <= 24; offset++) {
+        const score = getAverageScoreForOffset(offset);
+        if (score > bestScore) {
+            bestScore = score;
+            bestOffset = offset;
+        }
+    }
+
+    return { offset: bestOffset, score: bestScore };
+}
+
+// Update the best time marker position
+function updateBestTimeMarker() {
+    const bestTimeMarker = document.getElementById('best-time-marker');
+    if (!bestTimeMarker) return;
+
+    const { offset, score } = findBestTimeOffset();
+
+    // Calculate position (0-100%)
+    // Account for the slider labels on each side (roughly 35px each)
+    const position = ((offset + 24) / 48) * 100;
+
+    bestTimeMarker.style.left = `calc(${position}% + 35px * (1 - ${position / 50}))`;
+    bestTimeMarker.dataset.offset = offset;
+
+    // Update tooltip
+    const sign = offset >= 0 ? '+' : '';
+    bestTimeMarker.title = `Best time: ${sign}${offset}h (Score: ${Math.round(score)})`;
+}
+
+// Best time marker click handler
+const bestTimeMarker = document.getElementById('best-time-marker');
+if (bestTimeMarker) {
+    bestTimeMarker.addEventListener('click', () => {
+        const offset = parseInt(bestTimeMarker.dataset.offset || '0');
+        timeSlider.value = offset;
+        timeOffset = offset;
+        updateWeatherDisplay();
+    });
+}
+
 // Update weather display based on current time offset
 function updateWeatherDisplay() {
     if (!baseStartTime || currentWaypoints.length === 0) return;
@@ -285,6 +331,7 @@ function updateWeatherDisplay() {
 
     // Update slider gradient to show weather quality
     updateSliderGradient();
+    updateBestTimeMarker();
 }
 
 // Convert Celsius to Fahrenheit
