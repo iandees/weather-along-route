@@ -123,6 +123,92 @@ function getWeatherAlert(weather) {
     return '';
 }
 
+// Calculate a weather score (0-100, higher is better)
+function calculateWeatherScore(weather) {
+    let score = 100;
+
+    // Weather code penalties
+    const severeWeatherCodes = [65, 67, 82, 71, 73, 75, 77, 85, 86, 95, 96, 99, 56, 57, 66, 48];
+    const moderateWeatherCodes = [63, 81, 55, 61, 80];
+    const mildWeatherCodes = [51, 53, 45]; // Light drizzle, fog
+
+    if (severeWeatherCodes.includes(weather.weatherCode)) {
+        score -= 50;
+    } else if (moderateWeatherCodes.includes(weather.weatherCode)) {
+        score -= 30;
+    } else if (mildWeatherCodes.includes(weather.weatherCode)) {
+        score -= 15;
+    }
+
+    // Wind penalty (0-20 points)
+    if (weather.windSpeed > 50) {
+        score -= 20;
+    } else if (weather.windSpeed > 30) {
+        score -= 10;
+    } else if (weather.windSpeed > 20) {
+        score -= 5;
+    }
+
+    // Precipitation probability penalty (0-20 points)
+    if (weather.precipitationProbability >= 80) {
+        score -= 20;
+    } else if (weather.precipitationProbability >= 60) {
+        score -= 15;
+    } else if (weather.precipitationProbability >= 40) {
+        score -= 10;
+    } else if (weather.precipitationProbability >= 20) {
+        score -= 5;
+    }
+
+    // Actual precipitation penalty (0-10 points)
+    if (weather.precipitation > 5) {
+        score -= 10;
+    } else if (weather.precipitation > 2) {
+        score -= 7;
+    } else if (weather.precipitation > 0.5) {
+        score -= 4;
+    }
+
+    return Math.max(0, Math.min(100, score));
+}
+
+// Calculate average weather score for a given time offset
+function getAverageScoreForOffset(offset) {
+    if (!baseStartTime || currentWaypoints.length === 0 || currentWeatherData.length === 0) {
+        return 50;
+    }
+
+    let totalScore = 0;
+    currentWaypoints.forEach((wp, index) => {
+        const adjustedArrival = new Date(wp.arrivalTime.getTime() + offset * 3600000);
+        const weatherPoint = currentWeatherData[index];
+        const weather = getWeatherForTime(weatherPoint, adjustedArrival);
+        totalScore += calculateWeatherScore(weather);
+    });
+
+    return totalScore / currentWaypoints.length;
+}
+
+// Update the slider gradient based on weather scores
+function updateSliderGradient() {
+    const stops = [];
+
+    for (let offset = -24; offset <= 24; offset++) {
+        const score = getAverageScoreForOffset(offset);
+        const position = ((offset + 24) / 48) * 100;
+
+        // Interpolate between red (bad) and blue (good)
+        // Score 0 = red (#ef4444), Score 100 = blue (#3b82f6)
+        const red = Math.round(239 - (score / 100) * (239 - 59));
+        const green = Math.round(68 + (score / 100) * (130 - 68));
+        const blue = Math.round(68 + (score / 100) * (246 - 68));
+
+        stops.push(`rgb(${red}, ${green}, ${blue}) ${position}%`);
+    }
+
+    timeSlider.style.background = `linear-gradient(to right, ${stops.join(', ')})`;
+}
+
 // Update weather display based on current time offset
 function updateWeatherDisplay() {
     if (!baseStartTime || currentWaypoints.length === 0) return;
@@ -196,6 +282,9 @@ function updateWeatherDisplay() {
 
         weatherCards.appendChild(card);
     });
+
+    // Update slider gradient to show weather quality
+    updateSliderGradient();
 }
 
 // Convert Celsius to Fahrenheit
