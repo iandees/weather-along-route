@@ -86,4 +86,4 @@ Get weather for multiple points at once.
 
 ## License
 
-MIT
+Apache 2.0
