@@ -635,7 +635,7 @@ async function geocode(query) {
 // Get driving route using OSRM
 async function getRoute(start, end) {
     const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=true`;
-    
+
     const response = await fetch(url);
     const data = await response.json();
 
@@ -657,7 +657,7 @@ function getHourlyWaypoints(geometry, totalDuration, startTime) {
     const coords = geometry.coordinates;
     const waypoints = [];
 
-    // Start point
+    // Start point (include for weather at departure)
     waypoints.push({
         lat: coords[0][1],
         lng: coords[0][0],
@@ -682,7 +682,17 @@ function getHourlyWaypoints(geometry, totalDuration, startTime) {
     const hourInSeconds = 3600;
     const numHours = Math.floor(totalDuration / hourInSeconds);
 
+    // Calculate how close the last hourly point would be to the destination
+    // If less than 45 minutes away, skip the last hourly point
+    const remainingTimeAfterLastHour = totalDuration - (numHours * hourInSeconds);
+    const skipLastHour = remainingTimeAfterLastHour < 2700; // 45 minutes
+
     for (let hour = 1; hour <= numHours; hour++) {
+        // Skip the last hourly point if it's too close to destination
+        if (hour === numHours && skipLastHour) {
+            continue;
+        }
+
         const targetTime = hour * hourInSeconds;
         const targetRatio = targetTime / totalDuration;
         const targetDistance = targetRatio * totalDistance;
