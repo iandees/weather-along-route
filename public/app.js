@@ -632,6 +632,26 @@ async function geocode(query) {
     };
 }
 
+// Get driving route using OSRM
+async function getRoute(start, end) {
+    const url = `https://router.project-osrm.org/route/v1/driving/${start.lng},${start.lat};${end.lng},${end.lat}?overview=full&geometries=geojson&steps=true`;
+    
+    const response = await fetch(url);
+    const data = await response.json();
+
+    if (data.code !== 'Ok' || !data.routes || data.routes.length === 0) {
+        throw new Error('No route found');
+    }
+
+    const route = data.routes[0];
+    return {
+        geometry: route.geometry,
+        duration: route.duration, // in seconds
+        distance: route.distance, // in meters
+        legs: route.legs
+    };
+}
+
 // Calculate points along the route at hourly intervals
 function getHourlyWaypoints(geometry, totalDuration, startTime) {
     const coords = geometry.coordinates;
@@ -771,16 +791,8 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
             geocode(endLocation)
         ]);
 
-        // Get route
-        const routeResponse = await fetch(
-            `/api/route?start=${start.lng},${start.lat}&end=${end.lng},${end.lat}`
-        );
-
-        if (!routeResponse.ok) {
-            throw new Error('Failed to get route');
-        }
-
-        const routeData = await routeResponse.json();
+        // Get route directly from OSRM
+        const routeData = await getRoute(start, end);
 
         // Draw route on map
         const routeCoords = routeData.geometry.coordinates.map(c => [c[1], c[0]]);

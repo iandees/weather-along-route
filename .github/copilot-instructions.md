@@ -4,23 +4,23 @@
 A web app that displays weather forecasts along a driving route, showing conditions at hourly intervals based on estimated arrival times. Includes weather scoring, time adjustment to find optimal departure times, and night driving penalties.
 
 ## Tech Stack
-- **Backend**: Cloudflare Workers with Hono framework
+- **Backend**: Cloudflare Workers (static assets only)
 - **Frontend**: Static HTML/CSS/JavaScript served via Cloudflare Assets
 - **Map**: Leaflet.js for route visualization
-- **APIs**:
-  - OSRM for routing (proxied through backend)
-  - Nominatim for geocoding (called from frontend)
-  - Open-Meteo for weather forecasts and sunrise/sunset data (called from frontend)
+- **APIs** (all called from browser):
+  - OSRM for routing
+  - Nominatim for geocoding
+  - Open-Meteo for weather forecasts and sunrise/sunset data
 
 ## Project Structure
 ```
 /
 ├── src/
-│   └── index.ts          # Hono API server with route endpoint only
+│   └── index.ts          # Minimal Hono server (static assets only)
 ├── public/
 │   ├── index.html        # Main page with form, time slider, map, weather cards
 │   ├── styles.css        # Styling including night/alert states
-│   └── app.js            # Frontend logic with weather fetching, scoring, night detection
+│   └── app.js            # Frontend logic with all API calls, weather scoring, night detection
 ├── wrangler.toml         # Cloudflare Workers config
 ├── package.json
 └── tsconfig.json
@@ -40,8 +40,7 @@ A web app that displays weather forecasts along a driving route, showing conditi
 - Run `npm run dev` to start local development server
 - Run `npm run deploy` to deploy to Cloudflare Workers
 
-## API Endpoints
-- `GET /api/route` - Get driving route between two points (proxies OSRM)
-
 ## Browser-side API Calls
-- Open-Meteo weather API is called directly from the browser to avoid Cloudflare IP restrictions
+- OSRM routing API (router.project-osrm.org)
+- Nominatim geocoding API (nominatim.openstreetmap.org)
+- Open-Meteo weather API (api.open-meteo.com)
