@@ -151,7 +151,7 @@ app.post('/api/weather/batch', async (c) => {
       const startDateStr = startDate.toISOString().split('T')[0];
       const endDateStr = endDate.toISOString().split('T')[0];
 
-      const url = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lng}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m&start_date=${startDateStr}&end_date=${endDateStr}&timezone=auto`;
+      const url = `https://api.open-meteo.com/v1/forecast?latitude=${point.lat}&longitude=${point.lng}&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m&daily=sunrise,sunset&start_date=${startDateStr}&end_date=${endDateStr}&timezone=auto`;
 
       const response = await fetchWithUserAgent(url);
       const data = await response.json() as {
@@ -168,6 +168,11 @@ app.post('/api/weather/batch', async (c) => {
           precipitation: string;
           wind_speed_10m: string;
         };
+        daily: {
+          time: string[];
+          sunrise: string[];
+          sunset: string[];
+        };
       };
 
       // Return the full hourly forecast data for client-side time adjustment
@@ -183,6 +188,11 @@ app.post('/api/weather/batch', async (c) => {
           weatherCode: data.hourly.weather_code[i],
           windSpeed: data.hourly.wind_speed_10m[i],
           description: getWeatherDescription(data.hourly.weather_code[i])
+        })),
+        dailySunTimes: data.daily.time.map((date, i) => ({
+          date,
+          sunrise: data.daily.sunrise[i],
+          sunset: data.daily.sunset[i]
         })),
         units: {
           temperature: data.hourly_units.temperature_2m,

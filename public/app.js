@@ -89,7 +89,7 @@ function getWeatherForTime(weatherPoint, targetTime) {
 }
 
 // Check if weather conditions are poor (returns alert emoji if so)
-function getWeatherAlert(weather) {
+function getWeatherAlert(weather, arrivalTime = null, weatherPoint = null) {
     // Poor weather conditions:
     // - Heavy rain (codes 65, 67, 82)
     // - Snow (codes 71-77, 85-86)
@@ -118,6 +118,11 @@ function getWeatherAlert(weather) {
     // High precipitation probability with actual precipitation expected
     if (weather.precipitationProbability >= 70 && weather.precipitation > 0.5) {
         return '⚠️';
+    }
+
+    // Night driving warning (based on sunrise/sunset)
+    if (arrivalTime && isNightTime(arrivalTime, weatherPoint)) {
+        return '🌙';
     }
 
     return '';
@@ -172,6 +177,89 @@ function calculateWeatherScore(weather) {
     return Math.max(0, Math.min(100, score));
 }
 
+// Get sunrise/sunset times for a specific date from weather data
+function getSunTimesForDate(weatherPoint, targetDate) {
+    if (!weatherPoint.dailySunTimes) {
+        return null;
+    }
+
+    const targetDateStr = targetDate.toISOString().split('T')[0];
+
+    for (const sunTime of weatherPoint.dailySunTimes) {
+        if (sunTime.date === targetDateStr) {
+            return {
+                sunrise: new Date(sunTime.sunrise),
+                sunset: new Date(sunTime.sunset)
+            };
+        }
+    }
+
+    return null;
+}
+
+// Check if a time is during nighttime based on sunrise/sunset
+function isNightTime(date, weatherPoint = null) {
+    // If we have sunrise/sunset data, use it
+    if (weatherPoint) {
+        const sunTimes = getSunTimesForDate(weatherPoint, date);
+        if (sunTimes) {
+            return date < sunTimes.sunrise || date > sunTimes.sunset;
+        }
+    }
+
+    // Fallback to fixed hours if no sun data available
+    const hour = date.getHours();
+    return hour >= 22 || hour < 6;
+}
+
+// Calculate night driving penalty for a waypoint using sunrise/sunset
+function getNightDrivingPenalty(arrivalTime, weatherPoint = null) {
+    const sunTimes = weatherPoint ? getSunTimesForDate(weatherPoint, arrivalTime) : null;
+
+    if (sunTimes) {
+        const arrivalMs = arrivalTime.getTime();
+        const sunriseMs = sunTimes.sunrise.getTime();
+        const sunsetMs = sunTimes.sunset.getTime();
+
+        // Full night (more than 1 hour before sunrise or after sunset)
+        const oneHour = 3600000;
+        if (arrivalMs < sunriseMs - oneHour || arrivalMs > sunsetMs + oneHour) {
+            return 30;
+        }
+
+        // Near sunrise/sunset (within 1 hour)
+        if (arrivalMs < sunriseMs || arrivalMs > sunsetMs) {
+            return 20;
+        }
+
+        // Twilight (within 30 minutes after sunrise or before sunset)
+        const thirtyMin = 1800000;
+        if (arrivalMs < sunriseMs + thirtyMin || arrivalMs > sunsetMs - thirtyMin) {
+            return 10;
+        }
+
+        return 0;
+    }
+
+    // Fallback to hour-based calculation
+    const hour = arrivalTime.getHours();
+
+    // Peak penalty during late night (midnight to 4 AM)
+    if (hour >= 0 && hour < 4) {
+        return 30;
+    }
+    // Moderate penalty for early morning (4 AM - 6 AM) and late evening (10 PM - midnight)
+    if ((hour >= 4 && hour < 6) || hour >= 22) {
+        return 20;
+    }
+    // Small penalty for dusk/dawn (6 AM - 7 AM and 8 PM - 10 PM)
+    if ((hour >= 6 && hour < 7) || (hour >= 20 && hour < 22)) {
+        return 10;
+    }
+
+    return 0;
+}
+
 // Calculate average weather score for a given time offset
 function getAverageScoreForOffset(offset) {
     if (!baseStartTime || currentWaypoints.length === 0 || currentWeatherData.length === 0) {
@@ -183,7 +271,14 @@ function getAverageScoreForOffset(offset) {
         const adjustedArrival = new Date(wp.arrivalTime.getTime() + offset * 3600000);
         const weatherPoint = currentWeatherData[index];
         const weather = getWeatherForTime(weatherPoint, adjustedArrival);
-        totalScore += calculateWeatherScore(weather);
+
+        // Start with weather score
+        let waypointScore = calculateWeatherScore(weather);
+
+        // Apply night driving penalty (using sunrise/sunset data)
+        waypointScore -= getNightDrivingPenalty(adjustedArrival, weatherPoint);
+
+        totalScore += Math.max(0, waypointScore);
     });
 
     return totalScore / currentWaypoints.length;
@@ -277,12 +372,13 @@ function updateWeatherDisplay() {
         const weatherPoint = currentWeatherData[index];
         const weather = getWeatherForTime(weatherPoint, adjustedArrival);
         const icon = getWeatherIcon(weather.weatherCode);
-        const alert = getWeatherAlert(weather);
+        const alert = getWeatherAlert(weather, adjustedArrival, weatherPoint);
+        const isNight = isNightTime(adjustedArrival, weatherPoint);
 
         // Create marker with permanent tooltip showing temp and conditions
         const marker = L.marker([wp.lat, wp.lng])
             .bindTooltip(`
-                <div class="weather-tooltip ${alert ? 'has-alert' : ''}">
+                <div class="weather-tooltip ${alert ? 'has-alert' : ''} ${isNight ? 'is-night' : ''}">
                     ${alert ? `<span class="alert">${alert}</span>` : ''}
                     <span class="weather-icon">${icon}</span>
                     <span class="temp">${convertTemp(weather.temperature)}${getTempUnit()}</span>
@@ -290,12 +386,13 @@ function updateWeatherDisplay() {
             `, {
                 permanent: true,
                 direction: 'top',
-                className: `weather-label ${alert ? 'weather-alert' : ''}`,
+                className: `weather-label ${alert ? 'weather-alert' : ''} ${isNight ? 'weather-night' : ''}`,
                 offset: [0, -10]
             })
             .bindPopup(`
                 <div class="weather-popup">
-                    ${alert ? `<div class="alert-banner">${alert} Poor driving conditions</div>` : ''}
+                    ${alert === '⚠️' ? `<div class="alert-banner">${alert} Poor driving conditions</div>` : ''}
+                    ${alert === '🌙' ? `<div class="alert-banner night">${alert} Night driving</div>` : ''}
                     <div class="time">${formatDateTime(adjustedArrival)}</div>
                     <div class="weather-icon" style="font-size: 2rem;">${icon}</div>
                     <div class="temp">${convertTemp(weather.temperature)}${getTempUnit()}</div>
@@ -306,7 +403,7 @@ function updateWeatherDisplay() {
 
         // Create sidebar card
         const card = document.createElement('div');
-        card.className = `weather-card ${alert ? 'has-alert' : ''}`;
+        card.className = `weather-card ${alert === '⚠️' ? 'has-alert' : ''} ${isNight ? 'is-night' : ''}`;
         card.innerHTML = `
             <div class="time">${wp.label} • ${formatDateTime(adjustedArrival)} ${alert}</div>
             <div class="conditions">
