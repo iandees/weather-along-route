@@ -20,8 +20,10 @@ type Bindings = {
 
 const app = new Hono<{ Bindings: Bindings }>();
 
-// Enable CORS
-app.use('/api/*', cors());
+// Enable CORS - only allow requests from our custom domain
+app.use('/api/*', cors({
+  origin: 'https://weatheralongroute.mapki.com',
+}));
 
 // Route API - Get driving route between two points
 app.get('/api/route', async (c) => {
