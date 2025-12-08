@@ -1,7 +1,7 @@
 import { Hono } from 'hono';
 import { cors } from 'hono/cors';
 
-const USER_AGENT = 'WeatherAlongRoute/1.0 (https://github.com/weather-along-route)';
+const USER_AGENT = 'WeatherAlongRoute/1.0 (https://github.com/iandees/weather-along-route)';
 
 // Helper function to make fetch requests with proper User-Agent
 function fetchWithUserAgent(url: string, options: RequestInit = {}): Promise<Response> {

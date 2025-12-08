@@ -488,7 +488,7 @@ async function geocode(query) {
         `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}`,
         {
             headers: {
-                'User-Agent': 'WeatherAlongRoute/1.0 (https://github.com/weather-along-route)'
+                'User-Agent': 'WeatherAlongRoute/1.0 (https://github.com/iandees/weather-along-route)'
             }
         }
     );
