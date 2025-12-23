@@ -598,12 +598,31 @@ function getWindSpeedUnit() {
 let routeLayer = null;
 let markersLayer = L.layerGroup().addTo(map);
 
-// Set default datetime to now
-const datetimeInput = document.getElementById('start-datetime');
-const now = new Date();
-now.setMinutes(0);
-now.setSeconds(0);
-datetimeInput.value = now.toISOString().slice(0, 16);
+// Pad month, day, hour, minute for HTML input, since toISOString() gives in UTC
+// --- Local datetime input helpers ---
+function pad(n) { return n < 10 ? '0' + n : n; }
+function toLocalInputValue(date) {
+    // Converts a Date to yyyy-MM-ddTHH:mm in local time for input
+    return date.getFullYear() + '-' +
+        pad(date.getMonth() + 1) + '-' +
+        pad(date.getDate()) + 'T' +
+        pad(date.getHours()) + ':' +
+        pad(date.getMinutes());
+}
+
+window.addEventListener('DOMContentLoaded', () => {
+    const datetimeInput = document.getElementById('start-datetime');
+    if (datetimeInput && !datetimeInput.value) {
+        const now = new Date();
+        now.setSeconds(0, 0);
+        // Round up to next hour
+        if (now.getMinutes() > 0 || now.getSeconds() > 0 || now.getMilliseconds() > 0) {
+            now.setHours(now.getHours() + 1);
+            now.setMinutes(0, 0, 0);
+        }
+        datetimeInput.value = toLocalInputValue(now);
+    }
+});
 
 // Weather icon mapping based on WMO codes
 function getWeatherIcon(code) {
@@ -786,7 +805,11 @@ function encodeRouteToURL(from, to, time, offset) {
     const params = new URLSearchParams();
     if (from) params.set('from', from);
     if (to) params.set('to', to);
-    if (time) params.set('time', time);
+    if (time) {
+        // Store time in ISO8601 with timezone
+        const d = new Date(time);
+        params.set('time', d.toISOString());
+    }
     if (typeof offset === 'number' && !isNaN(offset)) params.set('offset', offset);
     const url = `${window.location.pathname}?${params.toString()}`;
     window.history.replaceState({}, '', url);
@@ -796,7 +819,12 @@ function decodeRouteFromURL() {
     const params = new URLSearchParams(window.location.search);
     const from = params.get('from') || '';
     const to = params.get('to') || '';
-    const time = params.get('time') || '';
+    let time = params.get('time') || '';
+    // Convert ISO8601 (possibly with Z) to local input value
+    if (time) {
+        const d = new Date(time);
+        time = toLocalInputValue(d);
+    }
     const offset = params.has('offset') ? parseInt(params.get('offset'), 10) : 0;
     return { from, to, time, offset };
 }
@@ -823,7 +851,9 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
     const startLocation = document.getElementById('start-location').value;
     const endLocation = document.getElementById('end-location').value;
     const startDatetimeInput = document.getElementById('start-datetime').value;
-    const startDatetime = new Date(startDatetimeInput);
+    // Convert local input value to UTC ISO string for API
+    const localDate = new Date(startDatetimeInput);
+    const startDatetime = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
 
     // Update URL for sharing (now includes offset)
     const offset = parseInt(timeSlider.value, 10) || 0;
