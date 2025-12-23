@@ -153,6 +153,11 @@ const adjustedTimeDisplay = document.getElementById('adjusted-time');
 
 timeSlider.addEventListener('input', () => {
     timeOffset = parseInt(timeSlider.value);
+    // Update URL with new offset, keeping other params
+    const startLocation = document.getElementById('start-location').value;
+    const endLocation = document.getElementById('end-location').value;
+    const startDatetimeInput = document.getElementById('start-datetime').value;
+    encodeRouteToURL(startLocation, endLocation, startDatetimeInput, timeOffset);
     updateWeatherDisplay();
 });
 
@@ -467,6 +472,11 @@ if (bestTimeMarker) {
         const offset = parseInt(bestTimeMarker.dataset.offset || '0');
         timeSlider.value = offset;
         timeOffset = offset;
+        // Update URL with new offset
+        const startLocation = document.getElementById('start-location').value;
+        const endLocation = document.getElementById('end-location').value;
+        const startDatetimeInput = document.getElementById('start-datetime').value;
+        encodeRouteToURL(startLocation, endLocation, startDatetimeInput, timeOffset);
         updateWeatherDisplay();
     });
 }
@@ -771,6 +781,40 @@ function formatDateTime(date) {
         hour12: true
     });
 }
+// --- Route Sharing via URL ---
+function encodeRouteToURL(from, to, time, offset) {
+    const params = new URLSearchParams();
+    if (from) params.set('from', from);
+    if (to) params.set('to', to);
+    if (time) params.set('time', time);
+    if (typeof offset === 'number' && !isNaN(offset)) params.set('offset', offset);
+    const url = `${window.location.pathname}?${params.toString()}`;
+    window.history.replaceState({}, '', url);
+}
+
+function decodeRouteFromURL() {
+    const params = new URLSearchParams(window.location.search);
+    const from = params.get('from') || '';
+    const to = params.get('to') || '';
+    const time = params.get('time') || '';
+    const offset = params.has('offset') ? parseInt(params.get('offset'), 10) : 0;
+    return { from, to, time, offset };
+}
+
+function isValidTime(timeStr) {
+    if (!timeStr) return false;
+    const t = new Date(timeStr);
+    if (isNaN(t.getTime())) return false;
+    const now = new Date();
+    const maxFuture = new Date(now.getTime() + 1000 * 60 * 60 * 24 * 7); // 7 days
+    return t > now && t < maxFuture;
+}
+
+function prefillForm(from, to, time) {
+    document.getElementById('start-location').value = from || '';
+    document.getElementById('end-location').value = to || '';
+    if (time) document.getElementById('start-datetime').value = time;
+}
 
 // Main form handler
 document.getElementById('route-form').addEventListener('submit', async (e) => {
@@ -778,7 +822,12 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
 
     const startLocation = document.getElementById('start-location').value;
     const endLocation = document.getElementById('end-location').value;
-    const startDatetime = new Date(document.getElementById('start-datetime').value);
+    const startDatetimeInput = document.getElementById('start-datetime').value;
+    const startDatetime = new Date(startDatetimeInput);
+
+    // Update URL for sharing (now includes offset)
+    const offset = parseInt(timeSlider.value, 10) || 0;
+    encodeRouteToURL(startLocation, endLocation, startDatetimeInput, offset);
 
     const btn = document.getElementById('plan-trip-btn');
     const btnText = btn.querySelector('.btn-text');
@@ -829,10 +878,9 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
         currentWaypoints = waypoints;
         currentWeatherData = weatherResults;
         baseStartTime = startDatetime;
-        timeOffset = 0;
-
-        // Reset slider
-        timeSlider.value = 0;
+        timeOffset = offset;
+        // Set slider to offset
+        timeSlider.value = offset;
 
         // Show time adjuster
         document.getElementById('time-adjuster').style.display = 'block';
@@ -850,5 +898,22 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
         btn.disabled = false;
         btnText.style.display = 'inline';
         btnLoading.style.display = 'none';
+    }
+});
+
+// --- On page load, check for shared route in URL ---
+window.addEventListener('DOMContentLoaded', () => {
+    const { from, to, time, offset } = decodeRouteFromURL();
+    if (from || to || time) {
+        prefillForm(from, to, time);
+        if (typeof offset === 'number' && !isNaN(offset)) {
+            timeSlider.value = offset;
+            timeOffset = offset;
+        }
+        if (from && to && isValidTime(time)) {
+            // Auto-submit the form
+            document.getElementById('route-form').dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
+        }
+        // If time is missing/invalid, just prefill and wait for user
     }
 });
