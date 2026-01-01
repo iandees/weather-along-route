@@ -851,9 +851,8 @@ document.getElementById('route-form').addEventListener('submit', async (e) => {
     const startLocation = document.getElementById('start-location').value;
     const endLocation = document.getElementById('end-location').value;
     const startDatetimeInput = document.getElementById('start-datetime').value;
-    // Convert local input value to UTC ISO string for API
-    const localDate = new Date(startDatetimeInput);
-    const startDatetime = new Date(localDate.getTime() - localDate.getTimezoneOffset() * 60000);
+    // Use local time directly - Open-Meteo API with timezone=auto handles timezone
+    const startDatetime = new Date(startDatetimeInput);
 
     // Update URL for sharing (now includes offset)
     const offset = parseInt(timeSlider.value, 10) || 0;
